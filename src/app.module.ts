@@ -1,7 +1,7 @@
 import { Module, Logger } from '@nestjs/common';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloGatewayDriver, ApolloGatewayDriverConfig } from '@nestjs/apollo';
-import { IntrospectAndCompose } from '@apollo/gateway';
+import { IntrospectAndCompose, RemoteGraphQLDataSource } from '@apollo/gateway';
 import axios from 'axios';
 import { ConfigModule } from '@nestjs/config';
 
@@ -68,7 +68,27 @@ async function waitForServices(urls: string[], interval = 2000) {
               ],
               pollIntervalInMs: 2000,
             }),
+          // 🔥🔥🔥 THIS IS THE KEY FIX
+            buildService({ url }) {
+              return new RemoteGraphQLDataSource({
+                url,
+
+                willSendRequest({ request, context }) {
+                  const authHeader =
+                    context.req?.headers?.authorization;
+
+                  if (authHeader && request.http) {
+                    request.http.headers.set(
+                      'authorization',
+                      authHeader,
+                    );
+                  }
+                },
+              });
+            },
           },
+          // 🔥 REQUIRED: expose req to gateway
+          context: ({ req }) => ({ req }),
 
           // No CORS — removed as requested
           server: {
