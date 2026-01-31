@@ -1,19 +1,38 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { enableGlobalCors } from 'libs/cors/cors.helper';
+import { Logger, ValidationPipe } from '@nestjs/common';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const logger = new Logger('Gateway');
 
-  // Enable CORS
+  const app = await NestFactory.create(AppModule, {
+    bufferLogs: true,
+  });
+
+  // ✅ Global CORS
   enableGlobalCors(app);
 
-  // Select port for Gateway (ENV driven)
-  const PORT = process.env.PORT || 3000;
+  // ✅ Global validation (important if REST endpoints exist later)
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+    }),
+  );
 
-  await app.listen(Number(PORT), '0.0.0.0');  // Required for Docker networking
+  // ✅ Graceful shutdown (Docker / Kubernetes safe)
+  app.enableShutdownHooks();
 
-  console.log(`🚀 Gateway running at http://localhost:${PORT}/graphql`);
+  // ✅ Body size limit (avoid payload crash)
+  app.getHttpAdapter().getInstance().use(require('express').json({ limit: '2mb' }));
+
+  const PORT = Number(process.env.PORT) || 3000;
+
+  await app.listen(PORT, '0.0.0.0');
+
+  logger.log(`🚀 Gateway running on port ${PORT}`);
+  logger.log(`📡 GraphQL endpoint ready`);
 }
 
 bootstrap();

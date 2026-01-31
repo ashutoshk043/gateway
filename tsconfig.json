@@ -27,7 +27,8 @@
       ],
       "@app/cors/*": [
         "libs/cors/src/*"
-      ]
+      ],
+      "libs/*": ["libs/*"]
     }
   }
 }
